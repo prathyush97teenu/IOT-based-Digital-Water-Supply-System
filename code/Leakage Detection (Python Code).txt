@@ -1,0 +1,67 @@
+from __future__ import division
+import RPi.GPIO as GPIO #Import GPIO library
+import requests
+import urllib2
+import json
+import time #Import time library
+import os
+flow1 = 4
+pump = 27
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(flow1,GPIO.IN, pull_up_down = GPIO.PUD_OFF)
+GPIO.setup(pump,GPIO.OUT) 
+
+r = requests.get("https://www.server-iot.com/waterquality/api/update_request.php")
+print(r.url)
+def hbrate(hbratee):
+ global hb
+ hb+=1
+ time.sleep(0.0000022)
+GPIO.add_event_detect(flow1,GPIO.RISING,callback=hbrate)
+while True:
+ try:
+ req = urllib2.Request("https://www.server-iot.com/waterquality/api/view_request")
+ response = urllib2.urlopen(req)
+ j = response.read()
+ j=int(j)
+ if j==1:
+ f = open('/home/pi/cmd.txt',"w+")
+ f.write("1")
+ f.close()
+ print("Motor Switched ON")
+ GPIO.output(pump,1)
+ print"Flow sensor"
+ hb=0
+ time.sleep(10)
+ print "Flowrate 1 =",hb
+ f = open('f2.txt', 'r') # open file in read mode
+ f2 = f.read() # copy to a string
+ f.close() # close the file
+ f2=f2.strip()
+ f2=int(f2)
+ print "Flowrate 2 =",f2
+ diff= f2-hb
+ print "Difference is",diff
+ payload = {"u_frate": f2}
+ r = requests.get("https://www.server-iot.com/waterquality/api/update_frate.php",
+params=payload)
+ print(r.url)
+ if diff<0:
+ GPIO.output(pump,0)
+ r = requests.get("https://www.server-iot.com/waterquality/api/update_request.php")
+ print(r.url)
+ print "Leakage Found"
+ payload = {"u_status": "Leakage Found"}
+ r = requests.get("https://www.server-iot.com/waterquality/api/update_data.php",
+params=payload)
+ print(r.url)
+
+ else: 
+
+ GPIO.output(pump,0)
+ f = open('/home/pi/cmd.txt',"w+")
+ f.write("0")
+ f.close()
+ except Exception as e:
+ print e

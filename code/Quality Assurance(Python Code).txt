@@ -1,0 +1,92 @@
+rom __future__ import division
+import RPi.GPIO as GPIO
+import spidev
+import requests
+import urllib2
+import urllib
+import json
+import time
+import serial
+TRIG = 5 #Associate pin 5 to TRIG
+ECHO = 6 #Associate pin 6 to ECHO
+GPIO.setmode(GPIO.BCM) #Set GPIO pin numbering 
+
+GPIO.setup(TRIG,GPIO.OUT) #Set pin as GPIO out
+GPIO.setup(ECHO,GPIO.IN) #Set pin as GPIO in
+spi=spidev.SpiDev()
+print(spi)
+spi.open(0,0)
+def convert(x):
+ x=x/1023
+ x=x*100
+ x=format(x,'.2f')
+ return x
+while True:
+ GPIO.output(TRIG, False) #Set TRIG as LOW
+ print "Waitng For Sensor To Settle"
+ time.sleep(3) #Delay of 2 seconds
+ GPIO.output(TRIG, True) #Set TRIG as HIGH
+ time.sleep(0.00001) #Delay of 0.00001 seconds
+ GPIO.output(TRIG, False) #Set TRIG as LOW
+ while GPIO.input(ECHO)==0: #Check whether the ECHO is LOW
+ pulse_start = time.time() #Saves the last known time of LOW pulse
+ while GPIO.input(ECHO)==1: #Check whether the ECHO is HIGH
+ pulse_end = time.time() #Saves the last known time of HIGH pulse
+ pulse_duration = pulse_end - pulse_start #Get pulse duration to a variable
+ distance = pulse_duration * 17150 #Multiply pulse duration by 17150 to get distance
+ distance = round(distance, 2) #Round to two decimal points
+ if distance > 2 and distance < 25: #Check whether the distance is within range
+ #print "Distance:",distance - 0.5,"cm" #Print distance with 0.5 cm calibration
+ distance=distance-0.5
+ distance=distance/22
+ distance=distance*100
+ distance=100-distance
+ distance=format(distance,'.2f')
+ print (distance)
+ else:
+ print "Out Of Range" #display out of range
+ x=0.0
+ print"Turbidity"
+ temp2=spi.xfer([1,(8+0)<<4,0])
+ print temp2 
+
+ #temp1=(((temp2[2]-32)*5)/9)
+ a=temp2[1]
+ b=temp2[2]
+ if a>0:
+ a=a*256
+ c=a+b
+ print c
+ d=convert(c)
+ d=float(d)
+ d=100-d
+ else:
+ c=b
+ print c
+ d=convert(c)
+ d=float(d)
+ d=100-d
+ print str(d)+"%"
+ print"Temperature"
+ temp2=spi.xfer([1,(8+1)<<4,0])
+ print temp2
+ temp1=(((temp2[2]-32)*5)/9)
+ print temp1
+ print"pH"
+ ph=spi.xfer([1,(8+2)<<4,0])
+ print ph
+ ph=ph[2]
+ print ph
+
+ if ph>25 or int(d)>50.00 or temp1>50: #Threshold Values for Cut off
+ print "Sensor Threshold Varied\nMotor Turned OFF"
+ r = requests.get("https://www.server-iot.com/waterquality/api/update_request.php")
+ print(r.url)
+ if ph>25:
+ ph=1
+ else:
+ ph=0
+ payload = {"u_tank": distance,"u_ph":ph,"u_turb":d,"u_temp":temp1}
+ r = requests.get("https://www.server-iot.com/waterquality/api/sensors_update.php",
+params=payload)
+ print(r.url)

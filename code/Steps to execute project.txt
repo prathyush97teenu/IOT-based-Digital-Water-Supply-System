@@ -1,0 +1,11 @@
+Step 1: Make all the connections
+
+Step 2: Turn on the power supply and raspberry pi
+
+Step 3: Open VNC viewer and connect to the raspberry pi
+
+Step 4: Type in command 'sudo su'
+
+Step 5: Run the python program using command 'python user1.py' or 'python user2.py'
+
+Step 6: Project is running. End.
